@@ -594,8 +594,9 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string
 		if reflect.ValueOf(value).Len() > 0 {
 			str = fmt.Sprintf("(%v.%v NOT IN (?))", scope.QuotedTableName(), scope.Quote(primaryKey))
 			clause["args"] = []interface{}{value}
+		} else {
+			return ""
 		}
-		return ""
 	case map[string]interface{}:
 		var sqls []string
 		for key, value := range value {
@@ -673,11 +674,12 @@ func (scope *Scope) buildSelectQuery(clause map[string]interface{}) (str string)
 func (scope *Scope) whereSQL() (sql string) {
 	var (
 		quotedTableName                                = scope.QuotedTableName()
+		deletedAtField, hasDeletedAtField              = scope.FieldByName("DeletedAt")
 		primaryConditions, andConditions, orConditions []string
 	)
 
-	if !scope.Search.Unscoped && scope.HasColumn("deleted_at") {
-		sql := fmt.Sprintf("%v.deleted_at IS NULL", quotedTableName)
+	if !scope.Search.Unscoped && hasDeletedAtField {
+		sql := fmt.Sprintf("%v.%v IS NULL", quotedTableName, scope.Quote(deletedAtField.DBName))
 		primaryConditions = append(primaryConditions, sql)
 	}
 
@@ -886,16 +888,22 @@ func (scope *Scope) updatedAttrsWithValues(value interface{}) (results map[strin
 
 func (scope *Scope) row() *sql.Row {
 	defer scope.trace(NowFunc())
+
+	result := &RowQueryResult{}
+	scope.InstanceSet("row_query_result", result)
 	scope.callCallbacks(scope.db.parent.callbacks.rowQueries)
-	scope.prepareQuerySQL()
-	return scope.SQLDB().QueryRow(scope.SQL, scope.SQLVars...)
+
+	return result.Row
 }
 
 func (scope *Scope) rows() (*sql.Rows, error) {
 	defer scope.trace(NowFunc())
+
+	result := &RowsQueryResult{}
+	scope.InstanceSet("row_query_result", result)
 	scope.callCallbacks(scope.db.parent.callbacks.rowQueries)
-	scope.prepareQuerySQL()
-	return scope.SQLDB().Query(scope.SQL, scope.SQLVars...)
+
+	return result.Rows, result.Error
 }
 
 func (scope *Scope) initialize() *Scope {
