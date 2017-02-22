@@ -26,6 +26,7 @@ type DB struct {
 	values            map[string]interface{}
 	joinTableHandlers map[string]JoinTableHandler
 	blockGlobalUpdate bool
+	Result            sql.Result
 }
 
 // Open initialize a new db connection, need to import driver first, e.g:
